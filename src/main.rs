@@ -46,12 +46,17 @@ fn secretary_generator(n: u64, cutoff: Option<f64>) -> (std::vec::Vec<u64>, u64,
     // If a higher value than the first 1/e values of the array exists, return that value,
     // otherwise 0
     let mut hired = 0;
-    let remaining_interviews = all_secretaries.iter().rev().take((n - cutoff_idx) as usize);
-    for i in remaining_interviews.rev() {
+    let remaining_interviews: Vec<u64> = all_secretaries.iter().rev().take((n - cutoff_idx) as usize).map(|x| x.clone()).collect();
+    for i in remaining_interviews.iter().rev() {
         if *i > max_interviewed {
             hired = *i;
         }
-    }
+    };
+
+    // if no secretaries are better than the first 1/3, then hire the last one interviewed
+    if hired == 0 {
+        hired = *remaining_interviews.first().unwrap();
+    };
 
     (all_secretaries, max_interviewed, hired)
 }
