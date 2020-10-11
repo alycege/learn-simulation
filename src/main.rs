@@ -1,6 +1,25 @@
 use rand::distributions::{Distribution, StandardNormal};
 use rand::seq::SliceRandom;
 use rand::thread_rng;
+use structopt::StructOpt;
+
+#[derive(Debug, StructOpt)]
+#[structopt(name = "secretary", about = "The Secretary Problem.")]
+pub struct Opt {
+    /// Set speed
+    // we don't want to name it "speed", need to look smart
+    #[structopt(short = "m", long = "num_iterations", default_value = "1000")]
+    pub num_iterations: u64,
+
+    #[structopt(short = "n", long = "secretary_pool", default_value = "100")]
+    pub n: u64,
+
+    #[structopt(short = "c", long = "cutoff")]
+    pub cutoff: Option<f64>,
+
+    #[structopt(short = "q", long = "q_threshold", default_value="90")]
+    pub q_threshold: u64,
+}
 
 fn main() {
     // println!("Hello, world!");
@@ -8,12 +27,13 @@ fn main() {
     // let n1: i8 = rng.gen();
     //
     // println!("Random i8: {}", n1);
+    let opt = Opt::from_args();
 
     // println!("{:#?}", number_generator(5));
-    let num_sec = simulate_secretaries(1000, 100, None);
+    let num_sec = simulate_secretaries(opt.num_iterations, opt.n, opt.cutoff);
     let mut counter = 0;
     for i in num_sec {
-        if i == 0 {
+        if i > opt.q_threshold {
             counter += 1;
         }
     }
@@ -53,9 +73,9 @@ fn secretary_generator(n: u64, cutoff: Option<f64>) -> (std::vec::Vec<u64>, u64,
         }
     };
 
-    // if no secretaries are better than the first 1/3, then hire the last one interviewed
+    // if no secretaries are better than the first interviewed set, then hire the last one interviewed
     if hired == 0 {
-        hired = *remaining_interviews.first().unwrap();
+        hired = *remaining_interviews.iter().nth(0).unwrap(); //first().unwrap();
     };
 
     (all_secretaries, max_interviewed, hired)
