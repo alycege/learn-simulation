@@ -8,11 +8,39 @@ enum BarrierResult {
     Invalid
 }
 
+enum BarrierType {
+    In,
+    Out
+}
+
+enum BarrierDirection{
+    Up,
+    Down
+}
+
+// TODO: update this for double leg
 struct BarrierOption {
     strike_price: f64,
-    option_price: f64,
     barrier_price: f64,
-    terminal: Option<BarrierResult>
+    // is_single_leg: bool,
+    barrier_type: BarrierType,
+    barrier_direction: BarrierDirection,
+}
+
+impl BarrierOption {
+
+    pub fn initial_state(&self) -> bool{
+        true
+    }
+
+    pub fn update_state(&self, underlying_price: f64) -> bool {
+        match (self.barrier_direction, self.barrier_type) {
+            (BarrierDirection::Up, BarrierType::In) => (underlying_price > self.barrier_price),
+            (BarrierDirection::Up, BarrierType::Out) => (underlying_price < self.barrier_price),
+            (BarrierDirection::Down, BarrierType::In) => (underlying_price < self.barrier_price),
+            (BarrierDirection::Down, BarrierType::Out) => (underlying_price > self.barrier_price)
+        }
+    }
 }
 
 fn main() {
@@ -24,20 +52,23 @@ fn random_walk(n_steps: usize, mu: f64, sigma_sq: f64) -> std::vec::Vec<f64> {
     let rng = thread_rng();
     let normal_distr = Normal::new(mu, sigma_sq).unwrap();
     let v = normal_distr.sample_iter(rng).take(n_steps).collect();
-
-    v
+    return v;
 }
 
-fn option_price_terminal(price_vec: std::vec::Vec<f64>, final_price: f64, strike_price: f64, barrier_price: f64) -> BarrierResult {
+fn option_price_terminal(price_vec: std::vec::Vec<f64>, final_price: f64, barrier: BarrierOption) -> BarrierResult {
+
+    let mut state = barrier.initial_state();
 
     for &p in price_vec.iter() {
-        // out price
-        if p > barrier_price {
+
+        state &= barrier.update_state(p);
+
+        if !state {
             return BarrierResult::Invalid;
         }
     };
 
-    BarrierResult::TerminalOptionValue((final_price - strike_price).max(0.0));
+    return BarrierResult::TerminalOptionValue((final_price - barrier.strike_price).max(0.0));
 }
 
 fn generate_underlying_price(init_price: f64, n_steps: usize, mu: f64, sigma_sq: f64) -> (f64, std::vec::Vec<f64>) {
@@ -53,15 +84,21 @@ fn generate_underlying_price(init_price: f64, n_steps: usize, mu: f64, sigma_sq:
     (curr_price, price_vec)
 }
 
-fn simulate_option_price(num_iterations: usize, init_price: f64, n_steps: usize, mu: f64, sigma_sq: f64, strike_price: f64, barrier_price: f64) -> f64 {
+fn simulate_option_price(num_iterations: usize, init_price: f64, n_steps: usize, mu: f64, sigma_sq: f64, barrier: BarrierOption) -> f64 {
     let mut results_vec = Vec::new();
 
     for _i in 0..num_iterations {
         let (underlying_price_expiry, price_vec)  = generate_underlying_price(init_price, n_steps, mu, sigma_sq);
 
         // Call option
-        let option_final_price = option_price_terminal(price_vec, underlying_price_expiry, strike_price, barrier_price);
-        results_vec.push(option_final_price as f64);
+        let price_terminal = option_price_terminal(price_vec, underlying_price_expiry, barrier);
+
+        match price_terminal {
+            BarrierResult::TerminalOptionValue(v) => results_vec.push(v),
+            BarrierResult::Invalid => results_vec.push(0.0),
+        }
+
+        // results_vec.push(price_terminal::TerminalOptionValue as f64);
     };
 
     let options_sum:f64 = results_vec.iter().sum();
