@@ -28,9 +28,11 @@ struct BarrierOption {
 }
 
 impl BarrierOption {
-
     pub fn initial_state(&self) -> bool{
-        true
+        match self.barrier_direction {
+            In => false,
+            Out => true
+        }
     }
 
     pub fn update_state(&self, underlying_price: f64) -> bool {
